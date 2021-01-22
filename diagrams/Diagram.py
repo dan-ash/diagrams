@@ -1,9 +1,9 @@
 import os
 from graphviz import Digraph
+from .Context import Context
 from .utils import setdiagram
 
-class Diagram:
-    __directions = ("TB", "BT", "LR", "RL")
+class Diagram(Context):
     __curvestyles = ("ortho", "curved")
     __outformats = ("png", "jpg", "svg", "pdf")
 
@@ -67,7 +67,8 @@ class Diagram:
         :param node_attr: Provide node_attr dot config attributes.
         :param edge_attr: Provide edge_attr dot config attributes.
         """
-        self.name = name
+        super().__init__(name)
+
         if not name and not filename:
           filename = "diagrams_image"
         elif not filename:
@@ -119,13 +120,6 @@ class Diagram:
     def _repr_png_(self):
         return self.dot.pipe(format="png")
 
-    def _validate_direction(self, direction: str) -> bool:
-        direction = direction.upper()
-        for v in self.__directions:
-            if v == direction:
-                return True
-        return False
-
     def _validate_curvestyle(self, curvestyle: str) -> bool:
         curvestyle = curvestyle.lower()
         for v in self.__curvestyles:
@@ -133,6 +127,7 @@ class Diagram:
                 return True
         return False
 
+        self.label = label
     def _validate_outformat(self, outformat: str) -> bool:
         outformat = outformat.lower()
         for v in self.__outformats:
@@ -140,17 +135,9 @@ class Diagram:
                 return True
         return False
 
-    def node(self, nodeid: str, label: str, **attrs) -> None:
-        """Create a new node."""
-        self.dot.node(nodeid, label=label, **attrs)
-
     def connect(self, node: "Node", node2: "Node", edge: "Edge") -> None:
         """Connect the two Nodes."""
         self.dot.edge(node.nodeid, node2.nodeid, **edge.attrs)
-
-    def subgraph(self, dot: Digraph) -> None:
-        """Create a subgraph for clustering"""
-        self.dot.subgraph(dot)
 
     def render(self) -> None:
         self.dot.render(format=self.outformat, view=self.show, quiet=True)

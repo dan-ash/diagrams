@@ -1,8 +1,8 @@
 from graphviz import Digraph
+from .Context import Context
 from .utils import setcluster, getcluster, getdiagram
 
-class Cluster:
-    __directions = ("TB", "BT", "LR", "RL")
+class Cluster(Context):
     __bgcolors = ("#E5F5FD", "#EBF3E7", "#ECE8F6", "#FDF7E3")
 
     # fmt: off
@@ -30,9 +30,9 @@ class Cluster:
         :param graph_attr: Provide graph_attr dot config attributes.
         """
         self.label = label
-        self.name = "cluster_" + self.label
-
+        super().__init__("cluster_" + self.label)
         self.dot = Digraph(self.name)
+
 
         # Set attributes.
         for k, v in self._default_graph_attrs.items():
@@ -67,19 +67,3 @@ class Cluster:
         else:
             self._diagram.subgraph(self.dot)
         setcluster(self._parent)
-
-    def _validate_direction(self, direction: str):
-        direction = direction.upper()
-        for v in self.__directions:
-            if v == direction:
-                return True
-        return False
-
-    def node(self, nodeid: str, label: str, **attrs) -> None:
-        """Create a new node in the cluster."""
-        self.dot.node(nodeid, label=label, **attrs)
-
-    def subgraph(self, dot: Digraph) -> None:
-        self.dot.subgraph(dot)
-
-Group = Cluster
