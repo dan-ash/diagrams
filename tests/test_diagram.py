@@ -3,6 +3,7 @@ import shutil
 import unittest
 
 from diagrams import Cluster, Diagram, Edge, Node
+from diagrams.aws.compute import EC2
 from diagrams import getcluster, getdiagram, setcluster, setdiagram
 
 
@@ -134,21 +135,21 @@ class ClusterTest(unittest.TestCase):
                     Cluster(direction=dir)
 
     def test_with_global_context(self):
-        with Diagram(name=os.path.join(self.name, "with_global_context"), show=False):
+        with Diagram(name=os.path.join(self.name, "with_global_context"), show=False) as d1:
             self.assertIsNone(getcluster())
             with Cluster():
                 self.assertIsNotNone(getcluster())
-            self.assertIsNone(getcluster())
+            self.assertEqual(d1, getcluster())
 
     def test_with_nested_cluster(self):
-        with Diagram(name=os.path.join(self.name, "with_nested_cluster"), show=False):
+        with Diagram(name=os.path.join(self.name, "with_nested_cluster"), show=False) as d1:
             self.assertIsNone(getcluster())
             with Cluster() as c1:
                 self.assertEqual(c1, getcluster())
                 with Cluster() as c2:
                     self.assertEqual(c2, getcluster())
                 self.assertEqual(c1, getcluster())
-            self.assertIsNone(getcluster())
+            self.assertEqual(d1, getcluster())
 
     def test_node_not_in_diagram(self):
         # Node must be belong to a diagrams.
@@ -181,6 +182,14 @@ class ClusterTest(unittest.TestCase):
                 self.assertEqual(nodes - node1, node1)
                 self.assertEqual(nodes >> node1, node1)
                 self.assertEqual(nodes << node1, node1)
+    def test_node_as_cluster(self):
+        with Diagram(name=os.path.join(self.name, "test_node_as_cluster"), show=False) as d1:
+            node1 = Node("node1")
+            with EC2("node-as-cluster") as c1:
+                node2 = Node("node2")
+                self.assertEqual(
+                    c1, getcluster()
+                )
 
 
 class EdgeTest(unittest.TestCase):
