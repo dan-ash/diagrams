@@ -69,3 +69,33 @@ with Diagram("Event Processing", show=False):
 ![event processing diagram](/img/event_processing_diagram.png)
 
 > There is no depth limit of nesting. Feel free to create nested clusters as deep as you want.
+
+## Clusters with icons in the label
+
+It's possible to use any Node as a Cluster by using the `with` statement
+
+```python
+from diagrams import Cluster, Diagram
+from diagrams.aws.compute import ECS
+from diagrams.aws.database import RDS, Aurora
+from diagrams.aws.network import Route53, VPC
+
+with Diagram("Simple Web Service with DB Cluster", show=True, filename="mysql"):
+    dns = Route53("dns")
+    web = ECS("service")
+
+    with VPC('VPC'):
+        # using cluster with an icon
+        with Cluster("DB ClusterA"):
+            db_master1 = RDS("main")
+            db_master1 - [RDS("replica1"), RDS("replica2")]
+        # using the node
+        with Aurora("DB ClusterA") as db2:
+            db_master2 = RDS("main")
+            db_master2 - [RDS("replica1"), RDS("replica2")]
+
+        dns >> web >> db_master1
+        # link to/from cluster
+        dns >> web >> db2
+```
+
