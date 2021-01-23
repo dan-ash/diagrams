@@ -12,7 +12,7 @@ def getdiagram():
     try:
         return __diagram.get()
     except LookupError:
-        return None
+        raise EnvironmentError("Global diagrams context not set up")
 
 
 def setdiagram(diagram):
@@ -28,3 +28,9 @@ def getcluster():
 
 def setcluster(cluster):
     __cluster.set(cluster)
+
+def new_init(cls, init):
+    def reset_init(*args, **kwargs):
+        cls.__init__ = init
+
+    return reset_init

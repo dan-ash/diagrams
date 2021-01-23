@@ -67,16 +67,16 @@ class Diagram(Context):
         :param node_attr: Provide node_attr dot config attributes.
         :param edge_attr: Provide edge_attr dot config attributes.
         """
-        super().__init__(name)
 
         if not name and not filename:
           filename = "diagrams_image"
         elif not filename:
-            filename = "_".join(self.name.split()).lower()
+            filename = "_".join(name.split()).lower()
         self.filename = filename
-        self.dot = Digraph(self.name, filename=self.filename)
-
+        super().__init__(name, filename=filename)
+        self.edges = {}
         # Set attributes.
+        self.dot.attr(compound="true")
         for k, v in self._default_graph_attrs.items():
             self.dot.graph_attr[k] = v
         self.dot.graph_attr["label"] = self.name
@@ -111,7 +111,21 @@ class Diagram(Context):
         setdiagram(self)
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, *args):
+        super().__exit__(*args)
+        setdiagram(None)
+
+        for (node1, node2), edge in self.edges.items():
+            cluster_node1 = next(node1.nodes_iter, None)
+            if cluster_node1:
+                edge._attrs['ltail'] = node1.nodeid
+                node1 = cluster_node1
+            cluster_node2 = next(node2.nodes_iter, None)
+            if cluster_node2:
+                edge._attrs['lhead'] = node2.nodeid
+                node2 = cluster_node2
+            self.dot.edge(node1.nodeid, node2.nodeid, **edge.attrs)
+
         self.render()
         # Remove the graphviz file leaving only the image.
         os.remove(self.filename)
@@ -127,7 +141,6 @@ class Diagram(Context):
                 return True
         return False
 
-        self.label = label
     def _validate_outformat(self, outformat: str) -> bool:
         outformat = outformat.lower()
         for v in self.__outformats:
@@ -141,3 +154,7 @@ class Diagram(Context):
 
     def render(self) -> None:
         self.dot.render(format=self.outformat, view=self.show, quiet=True)
+
+    def subgraph(self, dot: Digraph):
+        """Create a subgraph for clustering"""
+        self.dot.subgraph(dot)
