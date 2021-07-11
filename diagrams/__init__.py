@@ -3,7 +3,7 @@ import html
 import os
 import uuid
 from pathlib import Path
-from typing import List, Union, Dict
+from typing import List, Union, Dict, Sequence
 
 from graphviz import Digraph
 
@@ -17,10 +17,7 @@ __cluster = contextvars.ContextVar("cluster")
 
 
 def getdiagram():
-    try:
-        return __diagram.get()
-    except LookupError:
-        raise EnvironmentError("Global diagrams context not set up")
+    return __diagram.get()
 
 
 def setdiagram(diagram):
@@ -53,7 +50,7 @@ class _Cluster:
 
         try:
             self._parent = getcluster() or getdiagram()
-        except EnvironmentError:
+        except LookupError:
             self._parent = None
 
     
@@ -280,7 +277,7 @@ class Node(_Cluster):
     _icon_dir = None
     _icon = None
     _icon_size = 30
-    _direction = "TB"
+    _direction = "LR"
     _height = 1.9
 
     # fmt: on
@@ -296,6 +293,7 @@ class Node(_Cluster):
     def __init__(
         self,
         label: str = "",
+        direction: str = None,
         icon: object = None,
         icon_size: int = None,
         **attrs: Dict
@@ -303,15 +301,25 @@ class Node(_Cluster):
         """Node represents a system component.
 
         :param label: Node label.
+        :param direction: Data flow direction. Default is "LR" (left to right).
         :param icon: Custom icon for tihs cluster. Must be a node class or reference.
         :param icon_size: The icon size when used as a Cluster. Default is 30.
         """
         # Generates an ID for identifying a node.
         self._id = self._rand_id()
-        self.label = label
+        if isinstance(label, str):
+            self.label = label
+        elif isinstance(label, Sequence):
+            self.label = "\n".join(label)
+        else:
+            self.label = str(label)
 
         super().__init__()
 
+        if direction:
+            if not self._validate_direction(direction):
+                raise ValueError(f'"{direction}" is not a valid direction')
+            self._direction = direction
         if icon:
             _node = icon(_no_init=True)
             self._icon = _node._icon
@@ -323,18 +331,22 @@ class Node(_Cluster):
         # If a node has an icon, increase the height slightly to avoid
         # that label being spanned between icon image and white space.
         # Increase the height by the number of new lines included in the label.
-        padding = 0.4 * (label.count('\n'))
-        icon = self._load_icon()
+        padding = 0.4 * (self.label.count('\n'))
+        icon_path = self._load_icon()
         self._attrs = {
             "shape": "none",
             "height": str(self._height + padding),
-            "image": icon,
-        } if icon else {}
+            "image": icon_path,
+        } if icon_path else {}
+
+        self._attrs['tooltip'] = (icon if icon else self).__class__.__name__
 
         # fmt: on
         self._attrs.update(attrs)
 
         # If a node is in the cluster context, add it to cluster.
+        if not self._parent:
+            raise EnvironmentError("Global diagrams context not set up")
         self._parent.node(self)
 
     def __enter__(self):
@@ -342,6 +354,8 @@ class Node(_Cluster):
 
         # Set attributes.
         for k, v in self._default_graph_attrs.items():
+            self.dot.graph_attr[k] = v
+        for k, v in self._attrs.items():
             self.dot.graph_attr[k] = v
 
         icon = self._load_icon()
@@ -352,9 +366,9 @@ class Node(_Cluster):
                 f'<TD align="left">{next(lines)}</TD></TR>' +\
                 ''.join(f'<TR><TD colspan="2" align="left">{line}</TD></TR>' for line in lines) +\
                 '</TABLE>>'
+        else:
+            self.dot.graph_attr["label"] = self.label
 
-        if not self._validate_direction(self._direction):
-            raise ValueError(f'"{self._direction}" is not a valid direction')
         self.dot.graph_attr["rankdir"] = self._direction
 
         # Set cluster depth for distinguishing the background color
@@ -470,26 +484,6 @@ class Node(_Cluster):
         return None
 
 
-class Cluster(Node):
-    def __init__(
-        self,
-        label: str = "",
-        direction: str = "LR",
-        icon: object = None,
-        icon_size: int = None,
-        **attrs: Dict
-        ):
-        """Cluster represents a cluster context.
-
-        :param label: Cluster label.
-        :param direction: Data flow direction. Default is "LR" (left to right).
-        :param icon: Custom icon for tihs cluster. Must be a node class or reference.
-        :param icon_size: The icon size. Default is 30.
-        """
-        self._direction = direction
-        super().__init__(label, icon, icon_size, **attrs)
-
-
 class Edge:
     """Edge represents an edge between two nodes."""
 
@@ -536,6 +530,7 @@ class Edge:
             # Graphviz complaining about using label for edges, so replace it with xlabel.
             # Update: xlabel option causes the misaligned label position: https://github.com/mingrammer/diagrams/issues/83
             self._attrs["label"] = label
+            self._attrs["tooltip"] = label
         if color:
             self._attrs["color"] = color
         if style:
@@ -608,4 +603,4 @@ class Edge:
         return {**self._attrs, "dir": direction}
 
 
-Group = Cluster
+Group = Cluster = Node
